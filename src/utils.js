@@ -1,12 +1,14 @@
+import { settings } from '../config/settings.js';
+
 export const isAllowedTime = () => {
     const now = new Date();
     const utcHour = now.getUTCHours();
     const utcMinute = now.getUTCMinutes();
-    
-    // Willys robots.txt window: 04:00 to 08:45 UTC
-    if (utcHour >= 4 && utcHour < 8) return true;
-    if (utcHour === 8 && utcMinute < 45) return true;
-    
+
+    const { windowStartHour, windowEndHour, windowEndMinute } = settings.scrape;
+
+    if (utcHour >= windowStartHour && utcHour < windowEndHour) return true;
+    if (utcHour === windowEndHour && utcMinute < windowEndMinute) return true;
     return false;
 };
 

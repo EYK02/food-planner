@@ -1,4 +1,3 @@
-// src/scraper.js
 import { chromium } from 'playwright';
 import axios from 'axios';
 import { parseStringPromise } from 'xml2js';

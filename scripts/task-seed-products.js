@@ -1,4 +1,3 @@
-// scripts/seed_queue.js
 import { scraper } from '../src/scraper.js';
 import dbHelper from '../src/db.js';
 

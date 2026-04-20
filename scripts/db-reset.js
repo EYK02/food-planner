@@ -1,16 +1,14 @@
 import fs from 'fs';
 import Database from 'better-sqlite3';
-import config from '../config/database.js';
-
-const { dbPath } = config;
+import settings from '../config/settings.js';
 
 async function resetDatabase() {
     console.log("Starting database reset...");
 
     // 1. Delete the old database
-    if (fs.existsSync(dbPath)) {
+    if (fs.existsSync(settings.dp.path)) {
         try {
-            fs.unlinkSync(dbPath);
+            fs.unlinkSync(settings.dp.path);
             console.log('Existing database deleted.');
         } catch (err) {
             console.error('Error deleting database:', err);
@@ -21,8 +19,8 @@ async function resetDatabase() {
     }
 
     // 2. Initialize new database
-    const db = new Database(dbPath);
-    console.log("Database file created.");
+    const db = new Database(settings.dp.path);
+    console.log("Database file settings.dp.path.");
 
     const schema = `
         -- Core Tables
