@@ -22,7 +22,7 @@ export const scraper = {
         } finally {
             await page.close();
         }
-    }
+    },
 
     // Extraction: Scrape specific data using dynamic selectors
     async scrapeProductData(url, storeName, browser) {
