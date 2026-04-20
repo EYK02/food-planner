@@ -27,7 +27,7 @@ async function startScheduler() {
             // Use try/catch so one failing task doesn't kill the whole scheduler
             try {
                 if (day === 1) {
-                    await runScript('./scripts/task-seed-sales.js');
+                    await runScript('./scripts/task-seed-offers.js');
                 }
 
                 if (now.getDate() === 1) {

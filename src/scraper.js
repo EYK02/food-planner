@@ -12,29 +12,40 @@ export const scraper = {
         return parsed.urlset.url.map(u => u.loc[0]);
     },
 
-    // Discovery: Get list of Sale URLs from web
+    // Discovery: Get list of Sale URLs using dynamic selectors
     async getSalesUrls(storeName) {
+        const config = settings.stores[storeName];
         const browser = await chromium.launch({ headless: true });
         const page = await browser.newPage();
-        const url = settings.stores[storeName].salesUrl;
         
-        await page.goto(url, { waitUntil: 'networkidle' });
-        const urls = await page.$$eval('a[data-test="product-item-link"]', links => links.map(a => a.href));
+        await page.goto(config.salesUrl, { waitUntil: 'networkidle' });
+        
+        // Use the store-specific selector from config
+        const urls = await page.$$eval(config.selectors.offerLink, links => 
+            links.map(a => a.href)
+        );
+        
         await browser.close();
         return urls;
     },
 
-    // Extraction: Scrape specific data (This remains agnostic as it takes the URL directly)
-    async scrapeProductData(url, browser) {
+    // Extraction: Scrape specific data using dynamic selectors
+    async scrapeProductData(url, storeName, browser) {
+        const config = settings.stores[storeName];
         const page = await browser.newPage();
         try {
             await page.goto(url, { waitUntil: 'networkidle' });
-            const name = await page.textContent('[itemprop="name"]');
-            const price = await page.getAttribute('[itemprop="price"]', 'content');
+            
+            const name = await page.textContent(config.selectors.productName);
+            
+            // Use attribute if defined, otherwise fall back to textContent
+            const rawPrice = 
+                await page.getAttribute(config.selectors.productPrice, 'content') 
+                || await page.textContent(config.selectors.productPrice);
             
             return { 
                 name: name?.trim(), 
-                price: parseFloat(price?.replace(',', '.')) 
+                price: config.parsePrice(rawPrice) 
             };
         } finally {
             await page.close();
