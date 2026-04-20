@@ -41,5 +41,9 @@ export const settings = {
     },
     scheduler: {
         checkInterval: 30 * 60 * 1000 // 30 minutes
-    }
+    },
+    scheduledTasks: [
+        { name: 'Weekly Offers', script: './scripts/task-seed-offers.js', day: 2 }, // Tuesday = 2
+        { name: 'Monthly Products', script: './scripts/task-seed-products.js', date: 21 }
+    ]
 };

@@ -33,8 +33,8 @@ export const initDb = () => {
     const storeCount = db.prepare('SELECT COUNT(*) as count FROM stores').get().count;
     if (storeCount === 0) {
         const addStore = db.prepare('INSERT INTO stores (name) VALUES (?)');
-        addStore.run("Willys");
-        addStore.run("ICA");
+        addStore.run("willys");
+        addStore.run("ica");
 
     }
 };
@@ -42,6 +42,7 @@ export const initDb = () => {
 initDb();
 
 export const getDb = () => getOrOpenDb();
+
 
 /**
  * DB Helper API
@@ -73,6 +74,9 @@ const dbHelper = {
         'INSERT INTO price_history (product_id, price) VALUES (?, ?)'
     ).run(productId, price),
     
+    // Get helpers
+    getAllStoreNames: () => getOrOpenDb().prepare('SELECT name FROM stores').all().map(s => s.name.toLowerCase()),
+
     // Close connection
     close: () => {
         if (_db) {

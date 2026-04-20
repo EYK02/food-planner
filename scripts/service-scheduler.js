@@ -1,18 +1,17 @@
-import { exec }                 from 'child_process';
+import { exec } from 'child_process';
+import { settings } from '../config/settings.js';
 import { isAllowedTime, sleep } from '../src/utils.js';
-import { logger }               from '../src/logger.js';
+import { logger } from '../src/logger.js';
+import dbHelper from '../src/db.js';
 
-const runScript = (scriptPath) => {
-    return new Promise((resolve, reject) => {
-        logger.info(`--- Starting ${scriptPath} ---`);
-        exec(`node ${scriptPath}`, (error, stdout, stderr) => {
-            if (error) {
-                logger.error(`Error running ${scriptPath}: ${stderr || error.message}`);
-                reject(error);
-            } else {
-                logger.info(`Finished ${scriptPath}: ${stdout}`);
-                resolve();
-            }
+const runScript = (scriptPath, storeName) => {
+    return new Promise((resolve) => {
+        logger.info(`--- Starting ${scriptPath} for ${storeName} ---`);
+        // Pass the store name as an argument to the child process
+        exec(`node ${scriptPath} ${storeName}`, (error, stdout, stderr) => {
+            if (error) logger.error(`Error: ${stderr || error.message}`);
+            else logger.info(`Finished ${storeName}: ${stdout}`);
+            resolve();
         });
     });
 };
@@ -20,29 +19,27 @@ const runScript = (scriptPath) => {
 async function startScheduler() {
     logger.info("Scheduler service started.");
     while (true) {
-        if (isAllowedTime()) {
-            const now = new Date();
-            const day = now.getDay(); 
+        // We check if the current time is valid generally
+        // You may want to iterate through each store to check their specific windows
+        const now = new Date();
+        const stores = dbHelper.getAllStoreNames();
 
-            // Use try/catch so one failing task doesn't kill the whole scheduler
-            try {
-                if (day === 1) {
-                    await runScript('./scripts/task-seed-offers.js');
-                }
+        for (const store of stores) {
+            if (isAllowedTime(store)) {
+                for (const task of settings.scheduledTasks) {
+                    const dayMatch = task.day === undefined || task.day === now.getDay();
+                    const dateMatch = task.date === undefined || task.date === now.getDate();
 
-                if (now.getDate() === 1) {
-                    await runScript('./scripts/task-seed-products.js');
+                    if (dayMatch && dateMatch) {
+                        try {
+                            await runScript(task.script, store);
+                        } catch (err) {
+                            logger.error(`Task ${task.name} failed for ${store}.`);
+                        }
+                    }
                 }
-            } catch (err) {
-                logger.error("A scheduled task failed.");
             }
-        } else {
-            // Optional: Log that we are sleeping to save log noise
-            // logger.info("Outside allowed window. Scheduler idling.");
         }
-
-        await sleep(settings.scheduler.checkInterval); 
+        await sleep(settings.scheduler.checkInterval);
     }
 }
-
-startScheduler().catch(err => logger.error(`Fatal scheduler crash: ${err.message}`));
