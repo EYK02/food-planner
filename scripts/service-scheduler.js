@@ -17,24 +17,36 @@ const runScript = (scriptPath) => {
     });
 };
 
+const isAllowedTime = () => {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcMinute = now.getUTCMinutes();
+    
+    // Check if between 04:00 and 08:45 UTC
+    if (utcHour >= 4 && utcHour < 8) return true;
+    if (utcHour === 8 && utcMinute < 45) return true;
+    return false;
+};
+
 async function startScheduler() {
     while (true) {
         const now = new Date();
         const day = now.getDay(); // 1 = Monday
         const hour = now.getHours();
 
-        // 1. Monday Morning Sales Sync (04:05 AM)
-        if (day === 1 && hour === 4) {
-            await runScript('./scripts/seed_sales.js');
+        if (isAllowedTime()) {
+            // 1. Monday Morning Sales Sync (04:05 AM)
+            if (day === 1 && hour === 4) {
+                await runScript('./scripts/seed_sales.js');
+            }
+
+            // 2. Monthly Full Refresh (1st of the month, 04:00 AM)
+            if (now.getDate() === 1 && hour === 4) {
+                await runScript('./scripts/seed_queue.js');
+            }
         }
 
-        // 2. Monthly Full Refresh (1st of the month, 04:00 AM)
-        if (now.getDate() === 1 && hour === 4) {
-            await runScript('./scripts/seed_queue.js');
-        }
-
-        // Check again in 30 minutes
-        await sleep(30 * 60 * 1000);
+        await sleep(30 * 60 * 1000);    // Check again in 30 minutes
     }
 }
 
