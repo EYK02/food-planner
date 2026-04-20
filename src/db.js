@@ -2,7 +2,14 @@ import Database from 'better-sqlite3';
 import { settings } from '../config/settings.js';
 
 // Initialize private connection
-export const db = new Database(settings.db.path);
+let _db = null
+
+const getOrOpenDb = () => {
+    if (!_db) {
+        _db = new Database(settings.db.path);
+    }
+    return _db;
+}
 
 const schema = `
     CREATE TABLE IF NOT EXISTS stores (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE);
@@ -13,43 +20,69 @@ const schema = `
     CREATE TABLE IF NOT EXISTS scrape_queue (url TEXT PRIMARY KEY, status TEXT DEFAULT 'pending', priority INTEGER DEFAULT 0, last_attempt TIMESTAMP, last_checked TIMESTAMP);
 `;
 export const initDb = () => {
-    db.exec(schema)
+    const db = getOrOpenDb();
+    db.exec(schema);
+
+    const unitCount = db.prepare('SELECT COUNT(*) as count FROM units').get().count;
+    if (unitCount === 0) {
+        const insertUnit = db.prepare('INSERT INTO units (name, abbreviation) VALUES (?, ?)');
+        const units = [['gram', 'g'], ['milliliter', 'ml'], ['piece', 'pc']];
+        units.forEach(u => insertUnit.run(u[0], u[1]));
+    }
+
+    const storeCount = db.prepare('SELECT COUNT(*) as count FROM stores').get().count;
+    if (storeCount === 0) {
+        const addStore = db.prepare('INSERT INTO stores (name) VALUES (?)');
+        addStore.run("Willys");
+        addStore.run("ICA");
+
+    }
 };
 
-initDb
+initDb();
+
+export const getDb = () => getOrOpenDb();
 
 /**
  * DB Helper API
  */
 const dbHelper = {
     // --- Scrape Queue Operations ---
-    getNextJob: () => db.prepare(`
+    getNextJob: () => getOrOpenDb().prepare(`
         SELECT url FROM scrape_queue 
         ORDER BY priority DESC, last_checked ASC NULLS FIRST LIMIT 1
     `).get(),
 
-    updateJobStatus: (url, status, priority = 0) => db.prepare(`
+    updateJobStatus: (url, status, priority = 0) => getOrOpenDb().prepare(`
         UPDATE scrape_queue SET status = ?, priority = ?, last_checked = CURRENT_TIMESTAMP WHERE url = ?
     `).run(status, priority, url),
 
-    markJobFailed: (url) => db.prepare(`
+    markJobFailed: (url) => getOrOpenDb().prepare(`
         UPDATE scrape_queue SET status = 'failed', last_attempt = CURRENT_TIMESTAMP WHERE url = ?
     `).run(url),
 
     // --- Product Operations ---
     addStoreProduct: (storeId, name, sku, url) => {
-        const stmt = db.prepare('INSERT OR IGNORE INTO store_products (store_id, name, sku, url) VALUES (?, ?, ?, ?)');
+        const stmt = getOrOpenDb().prepare('INSERT OR IGNORE INTO store_products (store_id, name, sku, url) VALUES (?, ?, ?, ?)');
         const info = stmt.run(storeId, name, sku, url);
-        if (info.changes === 0) return db.prepare('SELECT id FROM store_products WHERE sku = ?').get(sku);
+        if (info.changes === 0) return getOrOpenDb().prepare('SELECT id FROM store_products WHERE sku = ?').get(sku);
         return { id: info.lastInsertRowid };
     },
 
-    recordPrice: (productId, price) => db.prepare(
+    recordPrice: (productId, price) => getOrOpenDb().prepare(
         'INSERT INTO price_history (product_id, price) VALUES (?, ?)'
     ).run(productId, price),
     
+    // 
+    close: () => {
+        if (_db) {
+            _db.close();
+            _db = null;
+        }
+    },
+
     // --- Bulk Operations (for seeds) ---
-    transaction: (callback) => db.transaction(callback)
+    transaction: (callback) => getOrOpenDb().transaction(callback)
 };
 
 export default dbHelper;
