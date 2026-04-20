@@ -1,17 +1,15 @@
-import { scraper }  from '../src/scraper.js';
-import { dbHelper } from '../src/db.js';
-import { logger }   from '../src/logger.js';
+import { scraper } from '../src/scraper.js';
+import dbHelper from '../src/db.js';
+import { logger } from '../src/logger.js';
 
-async function seedQueue() {
-    const INDEX_URL = 'https://www.willys.se/medias/Product-en-SEK-16568801874525431602.xml';
-    
-    logger.info(`Starting product seed from sitemap: ${INDEX_URL}`);
+async function seedQueue(storeName = 'willys') { 
+    logger.info(`Starting product seed for: ${storeName}`);
     
     try {
-        const urls = await scraper.getUrlsFromSitemap(INDEX_URL);
+        const urls = await scraper.getUrlsFromSitemap(storeName);
         
         if (!urls || urls.length === 0) {
-            logger.warn("No URLs found in sitemap or failed to fetch.");
+            logger.warn(`No URLs found in sitemap for ${storeName} or failed to fetch.`);
             return;
         }
 
@@ -23,10 +21,12 @@ async function seedQueue() {
             }
         })();
 
-        logger.info(`Seeding complete. Added ${urls.length} products to queue.`);
+        logger.info(`Seeding complete. Added ${urls.length} products for ${storeName} to queue.`);
     } catch (err) {
-        logger.error(`Failed to seed products: ${err.message}`);
+        logger.error(`Failed to seed products for ${storeName}: ${err.message}`);
     }
 }
 
-seedQueue().catch(err => logger.error(`Fatal seed crash: ${err.message}`));
+// Support command line argument, e.g., node task-seed-products.js ica
+const storeArg = process.argv[2] || 'willys';
+seedQueue(storeArg).catch(err => logger.error(`Fatal seed crash: ${err.message}`));
