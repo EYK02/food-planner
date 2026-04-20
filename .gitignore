@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Database files (local storage)
+planner.db
+*.db-journal
+
+# Environment logs/System files
+logs/
+*.log
+.DS_Store
