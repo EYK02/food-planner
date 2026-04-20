@@ -13,21 +13,16 @@ export const scraper = {
     },
 
     // Discovery: Get list of Sale URLs using dynamic selectors
-    async getSalesUrls(storeName) {
-        const config = settings.stores[storeName];
-        const browser = await chromium.launch({ headless: true });
+    async getProductUrlsFromOfferPage(storeName, browser) {
+        const config = getStoreConfig(storeName); // Use the helper
         const page = await browser.newPage();
-        
-        await page.goto(config.salesUrl, { waitUntil: 'networkidle' });
-        
-        // Use the store-specific selector from config
-        const urls = await page.$$eval(config.selectors.offerLink, links => 
-            links.map(a => a.href)
-        );
-        
-        await browser.close();
-        return urls;
-    },
+        try {
+            await page.goto(config.salesUrl, { waitUntil: 'networkidle' });
+            return await page.$$eval(config.selectors.offerLink, links => links.map(a => a.href));
+        } finally {
+            await page.close();
+        }
+    }
 
     // Extraction: Scrape specific data using dynamic selectors
     async scrapeProductData(url, storeName, browser) {
