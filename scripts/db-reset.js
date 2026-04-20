@@ -1,7 +1,8 @@
-import { fs }           from 'fs';
-import { Database }     from 'better-sqlite3';
-import { settings }     from '../config/settings.js'; // Ensure correct import
-import { logger }       from '../src/logger.js';
+import { fs }                   from 'fs';
+import { Database }             from 'better-sqlite3';
+import { settings }             from '../config/settings.js'; // Ensure correct import
+import { logger }               from '../src/logger.js';
+import dbHelper, { initDb, db } from '../src/db.js';
 
 async function resetDatabase() {
     logger.info("Starting database reset...");
@@ -19,20 +20,8 @@ async function resetDatabase() {
         logger.info('No existing database found, proceeding to initialization.');
     }
 
-    // 2. Initialize new database
-    const db = new Database(settings.db.path);
-    logger.info(`Database file created at ${settings.db.path}`);
-
-    const schema = `
-        CREATE TABLE IF NOT EXISTS stores (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE);
-        CREATE TABLE IF NOT EXISTS units (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, abbreviation TEXT NOT NULL UNIQUE);
-        CREATE TABLE IF NOT EXISTS ingredients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, is_active BOOLEAN DEFAULT 1);
-        CREATE TABLE IF NOT EXISTS store_products (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER, name TEXT, sku TEXT UNIQUE, url TEXT, FOREIGN KEY (store_id) REFERENCES stores(id));
-        CREATE TABLE IF NOT EXISTS price_history (id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER, price REAL NOT NULL, recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (product_id) REFERENCES store_products(id));
-        CREATE TABLE IF NOT EXISTS scrape_queue (url TEXT PRIMARY KEY, status TEXT DEFAULT 'pending', priority INTEGER DEFAULT 0, last_attempt TIMESTAMP, last_checked TIMESTAMP);
-    `;
-
-    db.exec(schema);
+    // 2. Initialize database
+    initDb();
     logger.info("Database schema initialized.");
 
     // 3. Seed basic data
