@@ -1,15 +1,23 @@
 import { chromium } from 'playwright';
 import dbHelper from '../src/db.js';
-import { scrapeUrl } from '../src/scraper.js';
+import { scraper } from '../src/scraper.js'; // Ensure you import the scraper object
+import { isAllowedTime, sleep } from '../src/utils.js';
 
 const { db } = dbHelper;
 
 async function runWorker() {
     console.log("Worker started. Waiting for jobs...");
-    const browser = await chromium.launch({ headless: true });
+    
+    // We launch the browser outside the loop for efficiency
+    let browser = await chromium.launch({ headless: true });
     
     while (true) {
-        // 1. Pick highest priority (Sales) first, then oldest last_checked
+        if (!isAllowedTime()) {
+            console.log("Outside allowed window. Pausing worker...");
+            await sleep(60000); // Sleep 1 min
+            continue;
+        }
+
         const job = db.prepare(`
             SELECT url FROM scrape_queue 
             ORDER BY priority DESC, last_checked ASC NULLS FIRST 
@@ -17,23 +25,20 @@ async function runWorker() {
         `).get();
 
         if (!job) {
-            console.log("Queue empty. Sleeping for 60 seconds...");
-            await new Promise(r => setTimeout(r, 60000));
+            await sleep(60000);
             continue;
         }
 
-        console.log(`Scraping priority job: ${job.url}`);
+        console.log(`Scraping: ${job.url}`);
         
         try {
-            // Use the centralized scraper
-            const productData = await scrapeUrl(job.url, browser);
+            // Using the centralized scraper engine
+            const productData = await scraper.scrapeProductData(job.url, browser);
             
             if (productData) {
-                // Record results using our unified db helper
                 const product = dbHelper.addStoreProduct(1, productData.name, job.url, job.url);
                 dbHelper.recordPrice(product.lastInsertRowid, productData.price);
                 
-                // Mark success
                 db.prepare(`
                     UPDATE scrape_queue 
                     SET status = 'completed', priority = 0, last_checked = CURRENT_TIMESTAMP 
@@ -43,10 +48,15 @@ async function runWorker() {
         } catch (e) {
             console.error(`Failed to scrape ${job.url}:`, e.message);
             db.prepare("UPDATE scrape_queue SET status = 'failed', last_attempt = CURRENT_TIMESTAMP WHERE url = ?").run(job.url);
+            
+            // If the browser crashes, restart it
+            if (!browser.isConnected()) {
+                console.log("Browser disconnected, relaunching...");
+                browser = await chromium.launch({ headless: true });
+            }
         }
 
-        // Always respect politeness delay
-        await new Promise(r => setTimeout(r, 10000));
+        await sleep(10000); // Politeness delay
     }
 }
 

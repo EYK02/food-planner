@@ -1,7 +1,5 @@
 import { exec } from 'child_process';
-
-// Simple delay helper
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+import { isAllowedTime, sleep } from '../src/utils';
 
 // Run a script and wait for it to finish
 const runScript = (scriptPath) => {
@@ -15,17 +13,6 @@ const runScript = (scriptPath) => {
             }
         });
     });
-};
-
-const isAllowedTime = () => {
-    const now = new Date();
-    const utcHour = now.getUTCHours();
-    const utcMinute = now.getUTCMinutes();
-    
-    // Check if between 04:00 and 08:45 UTC
-    if (utcHour >= 4 && utcHour < 8) return true;
-    if (utcHour === 8 && utcMinute < 45) return true;
-    return false;
 };
 
 async function startScheduler() {
