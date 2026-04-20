@@ -1,7 +1,7 @@
 import fs                  from 'fs';
 import { settings }             from '../config/settings.js'; // Ensure correct import
 import { logger }               from '../src/logger.js';
-import dbHelper, { initDb, getDb } from '../src/db.js';
+import dbHelper, { initDb } from '../src/db.js';
 import { get } from 'http';
 
 async function resetDatabase() {

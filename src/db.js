@@ -73,16 +73,13 @@ const dbHelper = {
         'INSERT INTO price_history (product_id, price) VALUES (?, ?)'
     ).run(productId, price),
     
-    // 
+    // Close connection
     close: () => {
         if (_db) {
             _db.close();
             _db = null;
         }
-    },
-
-    // --- Bulk Operations (for seeds) ---
-    transaction: (callback) => getOrOpenDb().transaction(callback)
+    }
 };
 
 export default dbHelper;
