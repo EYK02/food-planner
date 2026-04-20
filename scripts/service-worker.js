@@ -1,19 +1,18 @@
-import { chromium }                 from 'playwright';
-import { dbHelper }                 from '../src/db.js';
-import { scraper }                  from '../src/scraper.js';
-import { isAllowedTime, sleep }     from '../src/utils.js';
-import { logger }                   from '../src/logger.js';
+import { chromium } from 'playwright';
+import dbHelper from '../src/db.js';
+import { scraper } from '../src/scraper.js';
+import { isAllowedTime, sleep, getStoreConfig } from '../src/utils.js';
+import { logger } from '../src/logger.js';
 
-async function runWorker() {
-    logger.info("Worker started. Waiting for jobs...");
+async function runWorker(storeName = 'willys') {
+    const config = getStoreConfig(storeName);
+    logger.info(`Worker initialized for store: ${storeName}`);
     
     let browser = await chromium.launch({ headless: true });
     
     while (true) {
-        if (!isAllowedTime()) {
-            // Log as info to avoid filling logs with constant idle messages
-            // Alternatively, comment this out if you prefer silent idling
-            logger.info("Outside allowed scraping window. Pausing worker...");
+        if (!isAllowedTime(storeName)) {
+            logger.info(`Outside allowed window for ${storeName}. Idling...`);
             await sleep(60000); 
             continue;
         }
@@ -31,11 +30,12 @@ async function runWorker() {
             const productData = await scraper.scrapeProductData(job.url, browser);
             
             if (productData) {
-                const product = dbHelper.addStoreProduct(1, productData.name, job.url, job.url);
+                // Use config.id instead of hard-coded '1'
+                const product = dbHelper.addStoreProduct(config.id, productData.name, job.url, job.url);
                 dbHelper.recordPrice(product.id, productData.price);
                 
                 dbHelper.updateJobStatus(job.url, 'completed', 0);
-                logger.info(`Successfully completed job: ${job.url}`);
+                logger.info(`Successfully processed: ${job.url}`);
             }
         } catch (e) {
             logger.error(`Failed to scrape ${job.url}: ${e.message}`);
@@ -47,9 +47,11 @@ async function runWorker() {
             }
         }
 
-        await sleep(10000); // Politeness delay
+        // Implementation of Jitter: delay ± 20%
+        const jitter = config.politenessDelay * (0.8 + Math.random() * 0.4);
+        await sleep(jitter);
     }
 }
 
-// Ensure even fatal unhandled errors are logged
-runWorker().catch(err => logger.error(`Fatal worker crash: ${err.message}`));
+const storeArg = process.argv[2] || 'willys';
+runWorker(storeArg).catch(err => logger.error(`Fatal crash: ${err.message}`));
