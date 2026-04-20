@@ -41,7 +41,7 @@ async function startScheduler() {
             // logger.info("Outside allowed window. Scheduler idling.");
         }
 
-        await sleep(settings.scheduler.checkIntervals); 
+        await sleep(settings.scheduler.checkInterval); 
     }
 }
 
