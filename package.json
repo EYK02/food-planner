@@ -19,6 +19,7 @@
     "better-sqlite3": "^12.9.0",
     "cheerio": "^1.2.0",
     "playwright": "^1.59.1",
+    "robots-parser": "^3.0.1",
     "sitemapper": "^4.1.5",
     "xml2js": "^0.6.2"
   }
