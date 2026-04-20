@@ -8,7 +8,7 @@ export const settings = {
     db: {
         path: path.resolve(__dirname, '../data/planner.db')
     },
-    scrape: {
+    willys: {
         // Willys robots.txt window (UTC)
         windowStartHour: 4,
         windowStartMinute: 0,

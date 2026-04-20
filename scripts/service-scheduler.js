@@ -1,14 +1,16 @@
-import { exec } from 'child_process';
-import { isAllowedTime, sleep } from '../src/utils';
+import { exec }                 from 'child_process';
+import { isAllowedTime, sleep } from '../src/utils.js';
+import { logger }               from '../src/logger.js';
 
-// Run a script and wait for it to finish
 const runScript = (scriptPath) => {
     return new Promise((resolve, reject) => {
-        console.log(`--- Starting ${scriptPath} ---`);
+        logger.info(`--- Starting ${scriptPath} ---`);
         exec(`node ${scriptPath}`, (error, stdout, stderr) => {
-            if (error) reject(error);
-            else {
-                console.log(stdout);
+            if (error) {
+                logger.error(`Error running ${scriptPath}: ${stderr || error.message}`);
+                reject(error);
+            } else {
+                logger.info(`Finished ${scriptPath}: ${stdout}`);
                 resolve();
             }
         });
@@ -16,25 +18,31 @@ const runScript = (scriptPath) => {
 };
 
 async function startScheduler() {
+    logger.info("Scheduler service started.");
     while (true) {
-        const now = new Date();
-        const day = now.getDay(); // 1 = Monday
-        const hour = now.getHours();
-
         if (isAllowedTime()) {
-            // 1. Monday Morning Sales Sync (04:05 AM)
-            if (day === 1 && hour === 4) {
-                await runScript('./scripts/seed_sales.js');
-            }
+            const now = new Date();
+            const day = now.getDay(); 
 
-            // 2. Monthly Full Refresh (1st of the month, 04:00 AM)
-            if (now.getDate() === 1 && hour === 4) {
-                await runScript('./scripts/seed_queue.js');
+            // Use try/catch so one failing task doesn't kill the whole scheduler
+            try {
+                if (day === 1) {
+                    await runScript('./scripts/task-seed-sales.js');
+                }
+
+                if (now.getDate() === 1) {
+                    await runScript('./scripts/task-seed-products.js');
+                }
+            } catch (err) {
+                logger.error("A scheduled task failed.");
             }
+        } else {
+            // Optional: Log that we are sleeping to save log noise
+            // logger.info("Outside allowed window. Scheduler idling.");
         }
 
-        await sleep(30 * 60 * 1000);    // Check again in 30 minutes
+        await sleep(30 * 60 * 1000); 
     }
 }
 
-startScheduler().catch(console.error);
+startScheduler().catch(err => logger.error(`Fatal scheduler crash: ${err.message}`));

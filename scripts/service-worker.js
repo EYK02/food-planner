@@ -1,21 +1,23 @@
-import { chromium } from 'playwright';
-import dbHelper from '../src/db.js';
-import { scraper } from '../src/scraper.js';
-import { isAllowedTime, sleep } from '../src/utils.js';
+import { chromium }                 from 'playwright';
+import { dbHelper }                 from '../src/db.js';
+import { scraper }                  from '../src/scraper.js';
+import { isAllowedTime, sleep }     from '../src/utils.js';
+import { logger }                   from '../src/logger.js';
 
 async function runWorker() {
-    console.log("Worker started. Waiting for jobs...");
+    logger.info("Worker started. Waiting for jobs...");
     
     let browser = await chromium.launch({ headless: true });
     
     while (true) {
         if (!isAllowedTime()) {
-            console.log("Outside allowed window. Pausing worker...");
+            // Log as info to avoid filling logs with constant idle messages
+            // Alternatively, comment this out if you prefer silent idling
+            logger.info("Outside allowed scraping window. Pausing worker...");
             await sleep(60000); 
             continue;
         }
 
-        // Use the DAO helper method
         const job = dbHelper.getNextJob();
 
         if (!job) {
@@ -23,32 +25,31 @@ async function runWorker() {
             continue;
         }
 
-        console.log(`Scraping: ${job.url}`);
+        logger.info(`Scraping: ${job.url}`);
         
         try {
             const productData = await scraper.scrapeProductData(job.url, browser);
             
             if (productData) {
-                // Use the DAO helper methods
                 const product = dbHelper.addStoreProduct(1, productData.name, job.url, job.url);
                 dbHelper.recordPrice(product.id, productData.price);
                 
-                // Use the DAO helper method instead of raw SQL
                 dbHelper.updateJobStatus(job.url, 'completed', 0);
+                logger.info(`Successfully completed job: ${job.url}`);
             }
         } catch (e) {
-            console.error(`Failed to scrape ${job.url}:`, e.message);
-            // Use the DAO helper method instead of raw SQL
+            logger.error(`Failed to scrape ${job.url}: ${e.message}`);
             dbHelper.markJobFailed(job.url);
             
             if (!browser.isConnected()) {
-                console.log("Browser disconnected, relaunching...");
+                logger.warn("Browser disconnected, relaunching...");
                 browser = await chromium.launch({ headless: true });
             }
         }
 
-        await sleep(10000);
+        await sleep(10000); // Politeness delay
     }
 }
 
-runWorker().catch(console.error);
+// Ensure even fatal unhandled errors are logged
+runWorker().catch(err => logger.error(`Fatal worker crash: ${err.message}`));
