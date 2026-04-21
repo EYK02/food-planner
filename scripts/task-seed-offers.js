@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import { scraper } from '../src/scraper.js';
-import dbHelper from '../src/db.js';
+import dbHelper, { getDb } from '../src/db.js';
 import { logger } from '../src/logger.js';
 
 async function seedOffers(storeName) {
@@ -11,7 +11,7 @@ async function seedOffers(storeName) {
         const urls = await scraper.getProductUrlsFromOfferPage(storeName, browser);
         
         dbHelper.transaction(() => {
-            const stmt = dbHelper.db.prepare('INSERT OR IGNORE INTO scrape_queue (url, priority) VALUES (?, 1)');
+            const stmt = getDb().prepare('INSERT OR IGNORE INTO scrape_queue (url, priority) VALUES (?, 1)');
             urls.forEach(url => stmt.run(url));
         })();
         
