@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import { settings } from '../config/settings.js';
 import { isAllowedTime, sleep } from '../src/utils.js';
 import { logger } from '../src/logger.js';
@@ -7,10 +7,15 @@ import dbHelper from '../src/db.js';
 const runScript = (scriptPath, storeName) => {
     return new Promise((resolve) => {
         logger.info(`--- Starting ${scriptPath} for ${storeName} ---`);
-        // Pass the store name as an argument to the child process
-        exec(`node ${scriptPath} ${storeName}`, (error, stdout, stderr) => {
-            if (error) logger.error(`Error: ${stderr || error.message}`);
-            else logger.info(`Finished ${storeName}: ${stdout}`);
+        // Use spawn to prevent command injection
+        const child = spawn('node', [scriptPath, storeName]);
+        
+        child.stdout.on('data', (data) => logger.info(`[${scriptPath}] ${data}`));
+        child.stderr.on('data', (data) => logger.error(`[${scriptPath}] ${data}`));
+        
+        child.on('close', (code) => {
+            if (code !== 0) logger.error(`Finished ${storeName} with exit code ${code}`);
+            else logger.info(`Finished ${storeName} successfully`);
             resolve();
         });
     });
@@ -19,8 +24,6 @@ const runScript = (scriptPath, storeName) => {
 async function startScheduler() {
     logger.info("Scheduler service started.");
     while (true) {
-        // We check if the current time is valid generally
-        // You may want to iterate through each store to check their specific windows
         const now = new Date();
         const stores = dbHelper.getAllStoreNames();
 
@@ -34,7 +37,7 @@ async function startScheduler() {
                         try {
                             await runScript(task.script, store);
                         } catch (err) {
-                            logger.error(`Task ${task.name} failed for ${store}.`);
+                            logger.error(`Task ${task.name} failed for ${store}: ${err.message}`);
                         }
                     }
                 }
@@ -43,3 +46,5 @@ async function startScheduler() {
         await sleep(settings.scheduler.checkInterval);
     }
 }
+
+startScheduler().catch(err => logger.error(`Fatal scheduler crash: ${err.message}`));
