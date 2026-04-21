@@ -13,25 +13,35 @@ export const getStoreConfig = (storeName) => {
 
 export const isAllowedTime = (storeName = 'willys') => {
     const config = settings.stores[storeName];
-    if (!config) throw new Error(`Configuration for store '${storeName}' not found.`);
+    if (!config) throw new Error(`Configuration for '${storeName}' not found.`);
 
-    // If these values are undefined, null, or not set, we treat it as "always allowed"
     const { windowStartHour, windowStartMinute, windowEndHour, windowEndMinute } = config;
-
-    // Check if the window is defined; if not, return true immediately
-    const hasWindow = [windowStartHour, windowStartMinute, windowEndHour, windowEndMinute]
-        .every(val => val !== undefined && val !== null);
-
-    if (!hasWindow) {
-        return true;
-    }
+    if (windowStartHour === undefined) return true;
 
     const now = new Date();
+    
+    // Get current time in UTC
     const nowMinutes = (now.getUTCHours() * 60) + now.getUTCMinutes();
-    const startMinutes = (windowStartHour * 60) + windowStartMinute;
-    const endMinutes = (windowEndHour * 60) + windowEndMinute;
+    
+    // Convert your local-time config to UTC-minutes
+    // To do this, we need to know the offset. 
+    // New Date() already knows the offset!
+    const localStart = new Date(now);
+    localStart.setHours(windowStartHour, windowStartMinute, 0, 0);
+    
+    const localEnd = new Date(now);
+    localEnd.setHours(windowEndHour, windowEndMinute, 0, 0);
+    
+    const startMinutesUTC = (localStart.getUTCHours() * 60) + localStart.getUTCMinutes();
+    const endMinutesUTC = (localEnd.getUTCHours() * 60) + localEnd.getUTCMinutes();
 
-    return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+    // Logic: Is current UTC time within the UTC-converted window?
+    if (startMinutesUTC < endMinutesUTC) {
+        return nowMinutes >= startMinutesUTC && nowMinutes < endMinutesUTC;
+    } else {
+        // Handles midnight crossing in UTC
+        return nowMinutes >= startMinutesUTC || nowMinutes < endMinutesUTC;
+    }
 };
 
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
