@@ -79,7 +79,7 @@ export const getDb = () => getOrOpenDb();
 /**
  * DB Helper API
  */
-const dbHelper = {
+export const dbHelper = {
     // Only fetch jobs that aren't marked 'failed' and haven't exceeded retry limits
     getNextJob: () => getOrOpenDb().prepare(`
         SELECT url FROM scrape_queue 
