@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import { scraper } from '../src/scraper.js';
-import { dbHelper } from '../src/db.js';
+import dbHelper from '../src/db.js';
 import { logger } from '../src/logger.js';
 
 async function seedOffers(storeName) {
